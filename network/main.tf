@@ -13,3 +13,11 @@ data "http" "my_ip" {
 locals {
   my_ip_cidr = var.my_ip_override != "" ? var.my_ip_override : "${chomp(data.http.my_ip.response_body)}/32"
 }
+
+module "shared" {
+  source = "../modules/vpc"
+
+  name     = "shared"
+  vpc_cidr = "10.0.0.0/16"
+  az       = var.az
+}

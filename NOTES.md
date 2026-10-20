@@ -16,3 +16,8 @@
 ### What broke
 - Terraform's lookup returned 152.58.60.121 but `curl -4` returned 152.58.35.206 (stable per tool; Python matched Terraform). Likely Jio carrier-grade NAT giving different public IPs per destination server.
 - Decision: carry on. The real check is SSH to the bastion in Phase 8. If it times out, set `my_ip_override` or read the source IP the bastion sees. Phase 5's "SG source equals curl IP" test must account for this.
+
+## Phase 2: VPC module, shared-services only (passed)
+- Built `modules/vpc` (VPC with DNS on, public /24 + private /24 derived with `cidrsubnet`, IGW, public RT with 0.0.0.0/0 -> IGW, private RT with local route only, associations). Called once as `module.shared` (10.0.0.0/16).
+- Applied: 8 added, 0 changed, 0 destroyed. `tests/check_network.sh`: 6/6 PASS.
+- Nothing broke in this phase.
