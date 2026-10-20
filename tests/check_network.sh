@@ -127,5 +127,30 @@ check "prod-workload-sg has no inbound 3306" \
   "$(aws_ec2 describe-security-group-rules --filters "Name=group-id,Values=$PROD_SG" \
     --query 'length(SecurityGroupRules[?IsEgress==`false` && FromPort<=`3306` && ToPort>=`3306`])')" "0"
 
+# ---- Phase 6: NACLs on dev and prod private subnets ----
+# Expected non-default rules, one per line: egress rule# action protocol from to cidr
+EXPECTED_NACL=$(sort <<'EOF'
+False 100 allow 6 22 22 10.0.0.0/16
+False 110 allow 1 None None 10.0.0.0/16
+False 120 allow 6 1024 65535 10.0.0.0/16
+False 900 deny -1 None None 0.0.0.0/0
+True 100 allow 1 None None 10.0.0.0/16
+True 110 allow 6 1024 65535 10.0.0.0/16
+True 900 deny -1 None None 0.0.0.0/0
+EOF
+)
+for env in dev prod; do
+  vpc=$(vpc_id "$env")
+  subnet=$(aws_ec2 describe-subnets --filters "Name=vpc-id,Values=$vpc" "Name=tag:Name,Values=p1-$env-private" --query 'Subnets[0].SubnetId')
+  nacl=$(aws_ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$subnet" --query 'NetworkAcls[0].NetworkAclId')
+  check "$env private subnet uses a custom (non-default) NACL" \
+    "$(aws_ec2 describe-network-acls --network-acl-ids "$nacl" --query 'NetworkAcls[0].IsDefault')" "False"
+  check "$env NACL is named p1-$env-private-nacl" \
+    "$(aws_ec2 describe-network-acls --network-acl-ids "$nacl" --query 'NetworkAcls[0].Tags[?Key==`Name`].Value | [0]')" "p1-$env-private-nacl"
+  ACTUAL_NACL=$(aws_ec2 describe-network-acls --network-acl-ids "$nacl" \
+    --query 'NetworkAcls[0].Entries[?RuleNumber!=`32767`].[Egress,RuleNumber,RuleAction,Protocol,PortRange.From,PortRange.To,CidrBlock]' | tr '\t' ' ' | sort)
+  check "$env NACL rule numbers, ports and CIDRs are as expected" "$ACTUAL_NACL" "$EXPECTED_NACL"
+done
+
 echo
 if [ "$FAILS" -eq 0 ]; then echo "ALL CHECKS PASSED"; else echo "$FAILS CHECK(S) FAILED"; exit 1; fi

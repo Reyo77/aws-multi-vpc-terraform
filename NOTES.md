@@ -41,3 +41,10 @@
 ### What broke
 - Phase 4 bug found while planning Phase 5: the public route tables had the IGW route as an inline `route {}` block, while the peering routes were separate `aws_route` resources. Terraform treats inline routes as the full list, so the next apply wanted to DELETE the peering routes from the public route tables. Phase 4's tests passed only because they ran right after the first apply.
 - Fix: moved the IGW route into its own `aws_route.public_internet` in the module, adopted the existing routes with temporary `import` blocks (no AWS change), then deleted `imports.tf`. Re-plan shows "No changes". Lesson: never mix inline routes with `aws_route` on the same route table, and re-plan after every apply.
+
+## Phase 6: NACLs on private subnets (passed)
+- `network/nacls.tf`: custom NACLs for dev and prod private subnets, rules as separate `aws_network_acl_rule` resources (no inline rules). Inbound: 100 TCP 22, 110 ICMP, 120 TCP 1024-65535 (return traffic), all from 10.0.0.0/16, 900 deny all. Outbound: 100 ICMP, 110 TCP 1024-65535 to 10.0.0.0/16, 900 deny all.
+- Applied: 16 added, 0 changed, 0 destroyed; re-plan "No changes". `check_network.sh`: all PASS.
+- Stateful vs stateless: security groups remember connections so replies are automatic; NACLs judge every packet alone, so return traffic needs ephemeral-port rules in both directions.
+- Test 8 (bastion -> prod TCP 3306) is now dropped by both the NACL (only 22/ICMP allowed) and the SG; either way flow logs record REJECT.
+- Nothing broke in this phase.
