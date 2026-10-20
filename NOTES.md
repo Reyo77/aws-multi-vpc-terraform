@@ -48,3 +48,9 @@
 - Stateful vs stateless: security groups remember connections so replies are automatic; NACLs judge every packet alone, so return traffic needs ephemeral-port rules in both directions.
 - Test 8 (bastion -> prod TCP 3306) is now dropped by both the NACL (only 22/ICMP allowed) and the SG; either way flow logs record REJECT.
 - Nothing broke in this phase.
+
+## Phase 7: Logging stack + flow logs (passed)
+- `logging/` (own state): S3 bucket `p1-flowlogs-228998979209`, all 4 public-access-block settings true (verified with `get-public-access-block`), SSE-S3, 30-day lifecycle expiry, bucket policy for `delivery.logs.amazonaws.com` scoped to the account (`aws:SourceAccount`, `aws:SourceArn`). Applied: 5 added.
+- `network/flowlogs.tf`: one `aws_flow_log` per VPC, traffic ALL, S3 destination, 60s aggregation. Applied: 3 added. `describe-flow-logs`: 3 flow logs ACTIVE.
+- `terraform plan -destroy` in network/: 71 resources, none is an S3 bucket, so teardown leaves the logs alone. (The flow log entries show the bucket ARN only as an attribute being cleared.)
+- Nothing broke in this phase.

@@ -13,6 +13,11 @@ variable "public_key_path" {
   type        = string
 }
 
+variable "flow_logs_bucket_arn" {
+  description = "ARN of the S3 bucket from the logging stack that receives VPC flow logs"
+  type        = string
+}
+
 variable "my_ip_override" {
   description = "Optional IPv4 CIDR (e.g. 203.0.113.7/32) used instead of the automatic lookup"
   type        = string
