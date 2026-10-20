@@ -91,5 +91,41 @@ check "prod route tables have NO route to 10.1.0.0/16" "$(routes_to_ours prod 10
 check "no dev<->prod peering exists" \
   "$(aws_ec2 describe-vpc-peering-connections --filters "Name=requester-vpc-info.vpc-id,Values=$DEV" "Name=accepter-vpc-info.vpc-id,Values=$PROD" "Name=status-code,Values=active,pending-acceptance,provisioning" --query 'length(VpcPeeringConnections)')" "0"
 
+# ---- Phase 5: security groups ----
+SG_IDS=$(aws_ec2 describe-security-groups --filters "Name=tag:Project,Values=project1" --query 'SecurityGroups[].GroupId')
+OPEN_INGRESS=0
+for sg in $SG_IDS; do
+  n=$(aws_ec2 describe-security-group-rules --filters "Name=group-id,Values=$sg" \
+    --query 'length(SecurityGroupRules[?IsEgress==`false` && CidrIpv4==`0.0.0.0/0`])')
+  OPEN_INGRESS=$((OPEN_INGRESS + n))
+done
+check "no project security group allows inbound 0.0.0.0/0" "$OPEN_INGRESS" "0"
+
+sg_id() { aws_ec2 describe-security-groups --filters "Name=group-name,Values=$1" "Name=tag:Project,Values=project1" --query 'SecurityGroups[0].GroupId'; }
+inbound_sources() { # inbound_sources <sg-id>: sorted unique inbound CIDRs
+  aws_ec2 describe-security-group-rules --filters "Name=group-id,Values=$1" \
+    --query 'SecurityGroupRules[?IsEgress==`false`].CidrIpv4' | tr '\t' '\n' | sort -u | tr '\n' ' ' | sed 's/ $//'
+}
+
+BASTION_SG=$(sg_id p1-bastion-sg)
+DEV_SG=$(sg_id p1-dev-workload-sg)
+PROD_SG=$(sg_id p1-prod-workload-sg)
+
+# The source must equal the IPv4 Terraform looked up (state output). On carrier NAT (Jio) that can differ
+# from what curl sees, so also print curl's value as information.
+TF_IP=$(terraform -chdir="$(dirname "$0")/../network" output -raw my_ip_cidr 2>/dev/null)
+CURL_IP="$(curl -4 -s -m 10 https://checkip.amazonaws.com)/32"
+check "bastion-sg port 22 source equals my Terraform-detected IPv4 /32" \
+  "$(aws_ec2 describe-security-group-rules --filters "Name=group-id,Values=$BASTION_SG" \
+    --query 'SecurityGroupRules[?IsEgress==`false` && FromPort==`22`].CidrIpv4 | [0]')" "$TF_IP"
+[ "$TF_IP" = "$CURL_IP" ] || echo "NOTE: curl sees $CURL_IP but Terraform used $TF_IP (carrier NAT?). Real test is SSH in Phase 8."
+
+check "bastion-sg has only one inbound source (my IP)" "$(inbound_sources "$BASTION_SG")" "$TF_IP"
+check "dev-workload-sg inbound only from 10.0.0.0/16" "$(inbound_sources "$DEV_SG")" "10.0.0.0/16"
+check "prod-workload-sg inbound only from 10.0.0.0/16" "$(inbound_sources "$PROD_SG")" "10.0.0.0/16"
+check "prod-workload-sg has no inbound 3306" \
+  "$(aws_ec2 describe-security-group-rules --filters "Name=group-id,Values=$PROD_SG" \
+    --query 'length(SecurityGroupRules[?IsEgress==`false` && FromPort<=`3306` && ToPort>=`3306`])')" "0"
+
 echo
 if [ "$FAILS" -eq 0 ]; then echo "ALL CHECKS PASSED"; else echo "$FAILS CHECK(S) FAILED"; exit 1; fi

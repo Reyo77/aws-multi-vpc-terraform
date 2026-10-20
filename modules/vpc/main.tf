@@ -36,12 +36,15 @@ resource "aws_internet_gateway" "this" {
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.this.id
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.this.id
-  }
-
   tags = { Name = "p1-${var.name}-public-rt" }
+}
+
+# A separate aws_route (not an inline route block) so it does not clash with the
+# peering aws_route resources added in the network stack.
+resource "aws_route" "public_internet" {
+  route_table_id         = aws_route_table.public.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.this.id
 }
 
 # Only the implicit local route: no way out of the VPC.

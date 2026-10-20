@@ -32,3 +32,12 @@
 - Applied: 10 added, 0 changed, 0 destroyed. `check_network.sh`: all PASS (both peerings active, shared routes to 10.1/10.2 via pcx, dev/prod route to 10.0 via pcx, dev has no route to 10.2, prod none to 10.1, no dev<->prod peering).
 - Why dev can't reach prod via shared: peering is non-transitive. AWS only forwards traffic whose source or destination is one of the two peered VPCs, and dev has no route to 10.2.0.0/16 anyway.
 - Nothing broke in this phase.
+
+## Phase 5: Security groups (passed)
+- `network/security_groups.tf`: bastion-sg (SSH in from my IP only; SSH/ICMP out to dev+prod; TCP 3306 out to prod only to create a blocked-traffic test), dev-workload-sg and prod-workload-sg (SSH/ICMP in from 10.0.0.0/16 only, outbound all, nothing on 3306).
+- Applied: 15 added, 3 imported, 0 changed, 0 destroyed. `check_network.sh`: all PASS.
+- The "SG source equals my IP" check compares against Terraform's detected IPv4, not curl's (see Phase 1 caveat). The script prints a NOTE when they differ.
+
+### What broke
+- Phase 4 bug found while planning Phase 5: the public route tables had the IGW route as an inline `route {}` block, while the peering routes were separate `aws_route` resources. Terraform treats inline routes as the full list, so the next apply wanted to DELETE the peering routes from the public route tables. Phase 4's tests passed only because they ran right after the first apply.
+- Fix: moved the IGW route into its own `aws_route.public_internet` in the module, adopted the existing routes with temporary `import` blocks (no AWS change), then deleted `imports.tf`. Re-plan shows "No changes". Lesson: never mix inline routes with `aws_route` on the same route table, and re-plan after every apply.
