@@ -73,3 +73,13 @@
 ## Phase 10: Flow log evidence (passed)
 - `tests/check_flowlogs.sh` polls S3, downloads and unzips the logs, counts ACCEPT/REJECT, and finds the evidence. Found on the first poll: 60 ACCEPT / 150 REJECT, 1 REJECT for bastion -> prod-app:3306 (at prod-app's ENI), 17 ACCEPT for port 22 from the bastion. Saved in `docs/flowlog-evidence.txt`.
 - Nothing broke in this phase.
+
+## Phase 11: Documentation and teardown (done)
+- README written (architecture, IP plan, deploy/destroy, test matrix, flow log evidence with field-by-field REJECT explanation, what broke, cost notes, peering vs Transit Gateway).
+- `terraform destroy` of network/ (75 resources, plan contained no S3 bucket). AWS CLI afterwards: 0 Terraform state resources, no instances, no project VPCs, no peering connections, no flow logs, no key pair, no Elastic IPs or NAT gateways.
+- The logging bucket `p1-flowlogs-228998979209` still exists with 13 log objects (7258 bytes); they expire after 30 days.
+- Instances were up for roughly 15 minutes (16:26 to 16:39 local), about $0.01 of EC2 time.
+- Resuming later: `cd network && terraform init && TF_VAR_my_ip_override="$(curl -4 -s https://checkip.amazonaws.com)/32" terraform apply`.
+
+### Screenshot checklist (for docs/)
+VPC list, peering connections, route tables, SG rules, test script output (connectivity), S3 flow log objects. The resources are destroyed, so re-apply the network stack first if you want live screenshots, then destroy again.
