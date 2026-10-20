@@ -54,3 +54,11 @@
 - `network/flowlogs.tf`: one `aws_flow_log` per VPC, traffic ALL, S3 destination, 60s aggregation. Applied: 3 added. `describe-flow-logs`: 3 flow logs ACTIVE.
 - `terraform plan -destroy` in network/: 71 resources, none is an S3 bucket, so teardown leaves the logs alone. (The flow log entries show the bucket ARN only as an attribute being cleared.)
 - Nothing broke in this phase.
+
+## Phase 8: Test instances (passed)
+- `network/instances.tf`: key pair from `~/.ssh/project1.pub`, latest AL2023 AMI via SSM parameter, bastion (shared public subnet, public IP, bastion-sg), dev-app and prod-app (private subnets, no public IP, workload SGs). All t3.micro, IMDSv2 required, encrypted gp3 root volumes. Outputs: bastion public IP, private IPs.
+- Applied: 4 added. All 3 instances `running` with both status checks `ok`; dev-app/prod-app have no public IP; `ssh ... hostname` works.
+
+### What broke
+- First SSH to the bastion timed out. Cause: the Terraform `http` lookup returned 152.58.60.121 but my real traffic reaches AWS as 152.58.35.206 (the address `curl`/`ssh` see). Jio carrier NAT gives different public IPs to different clients (this was the Phase 1 caveat).
+- Fix: apply with `TF_VAR_my_ip_override="$(curl -4 -s https://checkip.amazonaws.com)/32"`. One in-place change to the bastion-sg ingress rule; SSH worked immediately. A plain `terraform apply` without the override would put the wrong IP back.
