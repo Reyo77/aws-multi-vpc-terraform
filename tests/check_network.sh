@@ -64,5 +64,32 @@ done
 CIDRS=$(for id in "$SHARED" "$DEV" "$PROD"; do aws_ec2 describe-vpcs --vpc-ids "$id" --query 'Vpcs[0].CidrBlock'; done)
 check "VPC CIDRs do not overlap" "$(echo "$CIDRS" | cut -d. -f2 | sort -u | wc -l | tr -d ' ')" "3"
 
+# ---- Phase 4: VPC peering ----
+pcx_status() { # pcx_status <name>
+  aws_ec2 describe-vpc-peering-connections --filters "Name=tag:Name,Values=$1" "Name=status-code,Values=active,pending-acceptance,provisioning,failed,rejected" \
+    --query 'VpcPeeringConnections[0].Status.Code'
+}
+check "shared<->dev peering is active" "$(pcx_status p1-shared-dev-pcx)" "active"
+check "shared<->prod peering is active" "$(pcx_status p1-shared-prod-pcx)" "active"
+
+# Only the project's own route tables (public + private); the VPC main route table is not ours.
+routes_to_ours() { # routes_to_ours <vpc-name> <dest-cidr>
+  local id; id=$(vpc_id "$1")
+  for rt in $(aws_ec2 describe-route-tables --filters "Name=vpc-id,Values=$id" "Name=tag:Project,Values=project1" --query 'RouteTables[].RouteTableId'); do
+    r=$(aws_ec2 describe-route-tables --route-table-ids "$rt" \
+      --query "RouteTables[0].Routes[?DestinationCidrBlock=='$2'].VpcPeeringConnectionId | [0]")
+    case "$r" in pcx-*) echo "pcx" ;; *) echo "none" ;; esac
+  done | sort -u | tr '\n' ' ' | sed 's/ $//'
+}
+
+check "shared route tables -> 10.1.0.0/16 via pcx" "$(routes_to_ours shared 10.1.0.0/16)" "pcx"
+check "shared route tables -> 10.2.0.0/16 via pcx" "$(routes_to_ours shared 10.2.0.0/16)" "pcx"
+check "dev route tables -> 10.0.0.0/16 via pcx" "$(routes_to_ours dev 10.0.0.0/16)" "pcx"
+check "dev route tables have NO route to 10.2.0.0/16" "$(routes_to_ours dev 10.2.0.0/16)" "none"
+check "prod route tables -> 10.0.0.0/16 via pcx" "$(routes_to_ours prod 10.0.0.0/16)" "pcx"
+check "prod route tables have NO route to 10.1.0.0/16" "$(routes_to_ours prod 10.1.0.0/16)" "none"
+check "no dev<->prod peering exists" \
+  "$(aws_ec2 describe-vpc-peering-connections --filters "Name=requester-vpc-info.vpc-id,Values=$DEV" "Name=accepter-vpc-info.vpc-id,Values=$PROD" "Name=status-code,Values=active,pending-acceptance,provisioning" --query 'length(VpcPeeringConnections)')" "0"
+
 echo
 if [ "$FAILS" -eq 0 ]; then echo "ALL CHECKS PASSED"; else echo "$FAILS CHECK(S) FAILED"; exit 1; fi

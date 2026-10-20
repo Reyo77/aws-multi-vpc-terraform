@@ -26,3 +26,9 @@
 - Added `module.dev` (10.1.0.0/16) and `module.prod` (10.2.0.0/16). Plan was add-only: 16 added, 0 changed, 0 destroyed; shared untouched.
 - `check_network.sh`: 16/16 PASS (3 VPCs exist with right CIDRs, 2 subnets each, no CIDR overlap).
 - Small snag: `terraform validate` said "Module not installed" after adding the new module calls. Fix: run `terraform init` whenever a module call is added.
+
+## Phase 4: VPC peering (passed)
+- `network/peering.tf`: shared<->dev and shared<->prod peering (`auto_accept`), routes both ways in the public and private route tables of every VPC. No dev<->prod peering or routes.
+- Applied: 10 added, 0 changed, 0 destroyed. `check_network.sh`: all PASS (both peerings active, shared routes to 10.1/10.2 via pcx, dev/prod route to 10.0 via pcx, dev has no route to 10.2, prod none to 10.1, no dev<->prod peering).
+- Why dev can't reach prod via shared: peering is non-transitive. AWS only forwards traffic whose source or destination is one of the two peered VPCs, and dev has no route to 10.2.0.0/16 anyway.
+- Nothing broke in this phase.
