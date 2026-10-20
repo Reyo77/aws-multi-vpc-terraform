@@ -21,3 +21,8 @@
 - Built `modules/vpc` (VPC with DNS on, public /24 + private /24 derived with `cidrsubnet`, IGW, public RT with 0.0.0.0/0 -> IGW, private RT with local route only, associations). Called once as `module.shared` (10.0.0.0/16).
 - Applied: 8 added, 0 changed, 0 destroyed. `tests/check_network.sh`: 6/6 PASS.
 - Nothing broke in this phase.
+
+## Phase 3: dev and prod VPCs (passed)
+- Added `module.dev` (10.1.0.0/16) and `module.prod` (10.2.0.0/16). Plan was add-only: 16 added, 0 changed, 0 destroyed; shared untouched.
+- `check_network.sh`: 16/16 PASS (3 VPCs exist with right CIDRs, 2 subnets each, no CIDR overlap).
+- Small snag: `terraform validate` said "Module not installed" after adding the new module calls. Fix: run `terraform init` whenever a module call is added.

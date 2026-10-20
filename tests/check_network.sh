@@ -49,5 +49,20 @@ else
   check "private route table has NO 0.0.0.0/0 route" "$PRIV_DEFAULT" "0"
 fi
 
+# ---- Phase 3: dev and prod VPCs ----
+DEV=$(vpc_id dev)
+PROD=$(vpc_id prod)
+for pair in "shared:$SHARED:10.0.0.0/16" "dev:$DEV:10.1.0.0/16" "prod:$PROD:10.2.0.0/16"; do
+  IFS=: read -r n id cidr <<<"$pair"
+  if [ -z "$id" ]; then fail "$n VPC exists"; continue; fi
+  pass "$n VPC exists ($id)"
+  check "$n VPC CIDR" "$(aws_ec2 describe-vpcs --vpc-ids "$id" --query 'Vpcs[0].CidrBlock')" "$cidr"
+  check "$n VPC has 2 subnets" "$(aws_ec2 describe-subnets --filters "Name=vpc-id,Values=$id" --query 'length(Subnets)')" "2"
+done
+
+# CIDRs must not overlap: all /16 network addresses distinct and in different 10.x ranges.
+CIDRS=$(for id in "$SHARED" "$DEV" "$PROD"; do aws_ec2 describe-vpcs --vpc-ids "$id" --query 'Vpcs[0].CidrBlock'; done)
+check "VPC CIDRs do not overlap" "$(echo "$CIDRS" | cut -d. -f2 | sort -u | wc -l | tr -d ' ')" "3"
+
 echo
 if [ "$FAILS" -eq 0 ]; then echo "ALL CHECKS PASSED"; else echo "$FAILS CHECK(S) FAILED"; exit 1; fi
