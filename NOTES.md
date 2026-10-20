@@ -69,3 +69,7 @@
 
 ### What broke
 - First run: 3/8. Tests 3-7 failed with "Connection timed out during banner exchange" although ping worked. Not a network block: SSH setup from my mobile link to Sydney takes ~6s direct and ~10s through a jump (many round trips), and the script's SSH ConnectTimeout was 5s. Raising ConnectTimeout to 30s fixed it; the probes themselves still time out after 5s so blocked tests don't hang. Layer: none (test-script timeout, not route/SG/NACL).
+
+## Phase 10: Flow log evidence (passed)
+- `tests/check_flowlogs.sh` polls S3, downloads and unzips the logs, counts ACCEPT/REJECT, and finds the evidence. Found on the first poll: 60 ACCEPT / 150 REJECT, 1 REJECT for bastion -> prod-app:3306 (at prod-app's ENI), 17 ACCEPT for port 22 from the bastion. Saved in `docs/flowlog-evidence.txt`.
+- Nothing broke in this phase.

@@ -1,0 +1,25 @@
+Bucket: s3://p1-flowlogs-228998979209 | bastion 10.0.0.83 | prod-app 10.2.1.48
+[  5s] objects: 8 | records: 220 | REJECT:3306 found: 1 | ACCEPT:22 found: 17
+
+=== Newest objects in the bucket ===
+2026-10-20 16:32:20        746 AWSLogs/228998979209/vpcflowlogs/ap-southeast-2/2026/10/20/228998979209_vpcflowlogs_ap-southeast-2_fl-06974ae7b90c315b5_20261020T1100Z_90d30174.log.gz
+2026-10-20 16:32:20       1172 AWSLogs/228998979209/vpcflowlogs/ap-southeast-2/2026/10/20/228998979209_vpcflowlogs_ap-southeast-2_fl-06974ae7b90c315b5_20261020T1055Z_3fe6f63c.log.gz
+2026-10-20 16:33:19        173 AWSLogs/228998979209/vpcflowlogs/ap-southeast-2/2026/10/20/228998979209_vpcflowlogs_ap-southeast-2_fl-0f8ad0541226292de_20261020T1055Z_820982ba.log.gz
+2026-10-20 16:33:19        312 AWSLogs/228998979209/vpcflowlogs/ap-southeast-2/2026/10/20/228998979209_vpcflowlogs_ap-southeast-2_fl-0f8ad0541226292de_20261020T1100Z_ef3dcbc1.log.gz
+2026-10-20 16:35:00        435 AWSLogs/228998979209/vpcflowlogs/ap-southeast-2/2026/10/20/228998979209_vpcflowlogs_ap-southeast-2_fl-03a1351a71895098e_20261020T1100Z_345b22d0.log.gz
+
+=== ACCEPT vs REJECT counts (all records) ===
+ACCEPT: 60
+REJECT: 150
+
+=== REJECT records: bastion (10.0.0.83) -> prod-app (10.2.1.48) port 3306 (test 8) ===
+2 228998979209 eni-0f06f66a88e5bf24a 10.0.0.83 10.2.1.48 43348 3306 6 5 300 1792494096 1792494123 REJECT OK
+
+=== ACCEPT records: port 22 from the bastion (10.0.0.83) ===
+2 228998979209 eni-06d8897ac7d8ddb60 10.0.0.83 10.1.1.192 40522 22 6 5 268 1792494033 1792494062 ACCEPT OK
+2 228998979209 eni-0f06f66a88e5bf24a 10.0.0.83 10.2.1.48 37820 22 6 5 268 1792494068 1792494069 ACCEPT OK
+2 228998979209 eni-0f06f66a88e5bf24a 10.0.0.83 10.2.1.48 43216 22 6 5 268 1792494096 1792494123 ACCEPT OK
+2 228998979209 eni-0f06f66a88e5bf24a 10.0.0.83 10.2.1.48 39022 22 6 5 268 1792494096 1792494123 ACCEPT OK
+2 228998979209 eni-0f06f66a88e5bf24a 10.0.0.83 10.2.1.48 43204 22 6 5 268 1792494135 1792494136 ACCEPT OK
+
+PASS: found REJECT for port 3306 toward prod-app and ACCEPT for port 22 from the bastion
