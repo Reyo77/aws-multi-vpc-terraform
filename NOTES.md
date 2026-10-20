@@ -62,3 +62,10 @@
 ### What broke
 - First SSH to the bastion timed out. Cause: the Terraform `http` lookup returned 152.58.60.121 but my real traffic reaches AWS as 152.58.35.206 (the address `curl`/`ssh` see). Jio carrier NAT gives different public IPs to different clients (this was the Phase 1 caveat).
 - Fix: apply with `TF_VAR_my_ip_override="$(curl -4 -s https://checkip.amazonaws.com)/32"`. One in-place change to the bastion-sg ingress rule; SSH worked immediately. A plain `terraform apply` without the override would put the wrong IP back.
+
+## Phase 9: Connectivity test matrix (8/8 PASS)
+- `tests/connectivity.sh`: reads IPs from `terraform output -json`, uses `ssh -J` through the bastion, probes with remote `timeout 5` / `ping -W 3` / `curl -m 5`. Blocked-path tests include a control (probe tool works locally) so a broken tool can't produce a false PASS. Output in `docs/connectivity-results.txt`.
+- Results: Mac->bastion works; Mac->dev-app direct fails; bastion->dev/prod ping+SSH work; dev<->prod ping+TCP22 fail (no route); dev-app->internet fails (no NAT); bastion->prod:3306 blocked.
+
+### What broke
+- First run: 3/8. Tests 3-7 failed with "Connection timed out during banner exchange" although ping worked. Not a network block: SSH setup from my mobile link to Sydney takes ~6s direct and ~10s through a jump (many round trips), and the script's SSH ConnectTimeout was 5s. Raising ConnectTimeout to 30s fixed it; the probes themselves still time out after 5s so blocked tests don't hang. Layer: none (test-script timeout, not route/SG/NACL).

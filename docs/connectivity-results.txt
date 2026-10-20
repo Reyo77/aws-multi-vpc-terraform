@@ -1,0 +1,12 @@
+Bastion 3.27.66.217 | dev-app 10.1.1.192 | prod-app 10.2.1.48
+------------------------------------------------------------
+PASS  #1  Mac -> Bastion SSH works (ip-10-0-0-83.ap-southeast-2.compute.internal)
+PASS  #2  Mac -> dev-app directly fails (no public IP, ssh exit 255)
+PASS  #3  Bastion -> dev-app ping + SSH work (ip-10-1-1-192.ap-southeast-2.compute.internal)
+PASS  #4  Bastion -> prod-app ping + SSH work (ip-10-2-1-48.ap-southeast-2.compute.internal)
+PASS  #5  dev-app -> prod-app ping + TCP 22 fail (no route)
+PASS  #6  prod-app -> dev-app ping + TCP 22 fail (no route)
+PASS  #7  dev-app -> internet fails (no NAT)
+PASS  #8  Bastion -> prod-app TCP 3306 blocked (NACL + SG, REJECT in flow logs)
+------------------------------------------------------------
+8/8 PASS
